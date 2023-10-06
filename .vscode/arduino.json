@@ -1,0 +1,7 @@
+{
+    "configuration": "mode=on",
+    "board": "arduino:megaavr:nona4809",
+    "programmer": "medbg",
+    "sketch": "zub.ino",
+    "port": "/dev/tty.usbserial-1420"
+}
