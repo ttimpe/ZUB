@@ -1,6 +1,6 @@
 #include "InputDebounce.h"
 
-#define BUTTON_DEBOUNCE_DELAY 20    // [ms]
+#define BUTTON_DEBOUNCE_DELAY 20 // [ms]
 
 #define PRUEF_BUTTON_HOLD_TIME 5000 // [ms]
 #define BLINK_INTERVAL 500          // [ms]
@@ -19,11 +19,11 @@
 #define PIN_CS2 6
 
 #define PIN_DS1 8
-#define PIN_DS2 11 // vorher 9, eventuell wird Timer 0 schon verwendet
+#define PIN_DS2 9
 
 // BUTTON PINS
 
-#define PIN_T_FREI A4  // vorher 10
+#define PIN_T_FREI A4 // vorher 10
 #define PIN_T_RUECK A5 // vorher 11
 #define PIN_T_PRUEF 12
 
@@ -37,8 +37,8 @@
 #define PIN_BUZZER A3
 
 // Tachometer PINS
-#define PIN_TACHO_IST 9
-#define PIN_TACHO_SOLL 10 
+#define PIN_TACHO_IST 10
+#define PIN_TACHO_SOLL 11 
 
 bool on = 1;
 bool off = 0;
@@ -79,11 +79,11 @@ unsigned long lastDebounceTimeRueck = 0;
 
 // States
 
-bool lightFreiOn  = false;
+bool lightFreiOn = false;
 bool lightPruefOn = false;
-bool lightBetrOn  = false;
+bool lightBetrOn = false;
 bool lightRueckOn = false;
-bool buzzerOn     = false;
+bool buzzerOn = false;
 
 
 static InputDebounce freiButton;
@@ -218,7 +218,7 @@ void turnOffBuzzer() {
  */
 
 int convertToPWM(int desiredSpeed) {
-    if (desiredSpeed == 0) {
+    if (desiredSpeed < 1) {
       return 0;
     }
     int speeds[] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90};
@@ -457,16 +457,18 @@ void displayH0()
   turnOffBuzzer();
   setCurrentSpeed(0);
   setCurrentSpeedLimit(25);
-  char h0CountString[5];
-  sprintf(h0CountString, "H%3d", H0count);
-  displayString(h0CountString);
+  displayString("H123");
+  /*
+  disD1(lcdNum[12][0], lcdNum[12][1], lcdNum[12][2], lcdNum[12][3]);
+  displayDigitAtPosition(H0count / 100, 1);
+  displayDigitAtPosition((H0count % 100 / 10), 2);
+  displayDigitAtPosition((H0count % 10), 3);
+  */
 }
 
 void displayLength()
 {
-  char trainLengthString[5];
-  sprintf(trainLengthString, "%3dH", TRAIN_LENGTH);
-  displayString(trainLengthString);
+  displayString(" 27H");
 }
 void displayFunc7()
 {
@@ -474,9 +476,7 @@ void displayFunc7()
 }
 void displayResetCount()
 {
-   char resetCountString[5];
-  sprintf(resetCountString, "E%3d", resetCount);
-  displayString(resetCountString);
+  displayString("E123");
 }
 
 void displayL000()
@@ -543,10 +543,7 @@ void pruefButton_pressedCallback()
     }
     else
     {
-      
       currentTestDisplay = 0;
-      setCurrentSpeed(0);
-      setCurrentSpeedLimit(25);
     }
 
 }
@@ -600,13 +597,19 @@ void initDisplay() {
   digitalWrite(PIN_CS2, HIGH);
 }
 void setupPins() {
-  // Leuchten
+    // Leuchten
   pinMode(PIN_L_BETR, OUTPUT);
   pinMode(PIN_L_FREI, OUTPUT);
   pinMode(PIN_L_PRUEF, OUTPUT);
   pinMode(PIN_L_RUECK, OUTPUT);
 
-  // Tacho
+  // Buttons
+
+ /* pinMode(PIN_T_FREI, INPUT_PULLUP);
+  pinMode(PIN_T_PRUEF, INPUT_PULLUP);
+  pinMode(PIN_T_RUECK, INPUT_PULLUP);
+*/
+// Tacho
   pinMode(PIN_TACHO_IST, OUTPUT);
   pinMode(PIN_TACHO_SOLL, OUTPUT);
 }
@@ -630,15 +633,20 @@ void bootSequence() {
   turnOnRueck();
   delay(500);
   turnOffRueck();
-  setCurrentSpeed(0);
-  setCurrentSpeedLimit(25);
-  delay(2000);
+//  blankDisplay();
+setCurrentSpeed(0);
+setCurrentSpeedLimit(25);
+delay(2000);
 }
 
 void setup()
 {
   setupPins();
   initDisplay();
+//  blankDisplay();
+
+
+
   turnOffBuzzer();
   turnOffPruef();
   turnOffFrei();
@@ -648,17 +656,18 @@ void setup()
   // Betr light on in normal mode
   turnOnBetr();
   Serial.begin(9600);
-  freiButton.registerCallbacks(freiButton_pressedCallback, freiButton_releasedCallback);
+   freiButton.registerCallbacks(freiButton_pressedCallback, freiButton_releasedCallback);
   pruefButton.registerCallbacks(pruefButton_pressedCallback, pruefButton_releasedCallback);
-  rueckButton.registerCallbacks(rueckButton_pressedCallback,rueckButton_releasedCallback);
+    rueckButton.registerCallbacks(rueckButton_pressedCallback,rueckButton_releasedCallback);
 
   // setup input buttons (debounced)
   freiButton.setup(PIN_T_FREI, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
   pruefButton.setup(PIN_T_PRUEF, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300); // single-shot pressed-on time duration callback
-  rueckButton.setup(PIN_T_RUECK, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300); // single-shot pressed-on time duration callback
+    rueckButton.setup(PIN_T_RUECK, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300); // single-shot pressed-on time duration callback
 
   
 }
+
 
 
 void normalMode() {
@@ -683,12 +692,47 @@ void loop()
 {
 
   unsigned long now = millis();
-  freiButton.process(now);
-  pruefButton.process(now);
-  rueckButton.process(now);
+freiButton.process(now);
+pruefButton.process(now);
+rueckButton.process(now);
+  // Read button pins
+/*
 
+  int readingFrei = digitalRead(PIN_T_RUECK);
+  int readingPruef = digitalRead(PIN_T_PRUEF);
+  int readingRueck = digitalRead(PIN_T_RUECK);
+
+  if (readingFrei != freiLastState)
+  {
+    lastDebounceTimeFrei = millis();
+  }
+  if (readingPruef != pruefLastState)
+  {
+    lastDebounceTimePruef = millis();
+  }
+  if (readingRueck != rueckLastState)
+  {
+    lastDebounceTimeRueck = millis();
+  }
+*/
+  /*
+    if (digitalRead(PIN_T_FREI) == LOW && digitalRead(PIN_T_RUECK) == LOW) {
+      // reset Zwangsbremsung
+
+    } */
   // Check if we need to enter or exit test mode
- 
+ /* if ((millis() - lastDebounceTimePruef) >= BUTTON_DEBOUNCE_DELAY)
+  {
+    if (readingPruef != pruefLastState)
+    {
+  Serial.println("PRUEF changed");
+      
+      // Pruef has changed, debounce
+      pruefLastState = readingPruef;
+      pruefPressed();
+    }
+  }
+*/
   if (currentTestDisplay > 0)
   {
     // constant pruef,rueck, blink frei, betr
@@ -700,6 +744,18 @@ void loop()
     Serial.println(currentTestDisplay);
     
     // Switch between display modes
+/*
+    if ((millis() - lastDebounceTimeRueck) >= BUTTON_DEBOUNCE_DELAY)
+    {
+      if (readingRueck != rueckLastState)
+      {
+        rueckLastState = readingRueck;
+        if (rueckLastState == LOW)
+        {
+          rueckPressed();
+        }
+      }
+    }*/
 
     switch (currentTestDisplay)
     {
@@ -733,32 +789,7 @@ void loop()
   {
       normalMode();
   }
-  if (Serial.available() > 0) {
-    String input = Serial.readString();
-    input.trim();
-    if (input[0] == 'I') {
-      String stringValue = input.substring(1);
-      int intValue = stringValue.toInt();
-      analogWrite(PIN_TACHO_IST, intValue);
-    }
-    if (input[0] == 'S') {
-      String stringValue = input.substring(1);
-      int intValue = stringValue.toInt();
-      analogWrite(PIN_TACHO_SOLL, intValue);
-    }
-   
-    
-  }
-   Serial.print("Outputting PWM for TACHO SOLL at");
-    Serial.print(PIN_TACHO_SOLL);
-    Serial.print(" with value: ");
-    Serial.println(convertToPWM(currentSpeedLimit));
-    Serial.print("Outputting PWM for TACHO IST at ");
-    Serial.print(PIN_TACHO_IST);
-    Serial.print(" with value: ");
-    Serial.println(convertToPWM(currentSpeed));
-    Serial.print("currentSpeed is");
-    Serial.println(currentSpeed);
-    delay(5000);
-  
+
+  // drawStateOnSerial();
+  delay(1);
 }
