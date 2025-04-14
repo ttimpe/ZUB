@@ -5,8 +5,7 @@
 #define PRUEF_BUTTON_HOLD_TIME 5000 // [ms]
 #define BLINK_INTERVAL 500          // [ms]
 #define TRAIN_LENGTH 26
-#define TERM_LINES 24
-#define TERM_COLUMNS 80
+
 #define CONSOLE_DRAW_INTERVAL 5000
 
 // DISPLAY PINS
@@ -38,27 +37,47 @@
 
 // Tachometer PINS
 #define PIN_TACHO_IST 9
-#define PIN_TACHO_SOLL 10 
+#define PIN_TACHO_SOLL 10
+
+// TODO: Rückfallebene, RFE-Schalter etc.
 
 bool on = 1;
 bool off = 0;
 
 int currentSpeedLimit = 25;
 int currentSpeed = 0;
-
-int H0count = 0;
-int resetCount = 0;
 int currentTestDisplay = 0;
 
-/* Test Displays:
- *  1 - VMAX
- *  2 - Test (8888, Buzzer)
- *  3 - count H0 H000
- *  4 - E010 - Freischaltungen an H0
- *  5 - L000 ?
- *  6 - Zuglänge 35H
- *  7 - 2221
- *  8 - blank
+int anzahlZwangsbremsungen = 0;
+int anzahlFreigaben = 0;
+int anzahlStoerschalterbedienungen = 0;
+int raddurchmesser = 0;
+int zuglaenge = 27;
+int ziel = 0;
+int linie = 0;
+int kurs = 0;
+int kilometerstandIn10er = 0;
+int bremskurve = 1;
+int rangiergeschwindigkeit = 25;
+// TODO: Störungen X mal aufgetreten
+
+/* Testfunktionen ZUB 100:
+ *  - 8888 Anzeigenprüfung
+ *  - Zwangsbremsungen
+ *  - Freigaben
+ *  - Störschalterbedienungen
+ *  - Raddurchmesser
+ *  - Zuglänge
+ *  - Zielnummer
+ *  - Liniennummer
+ *  - Kursnummer
+ *  - Kilometerstand in 10km
+ *  - Bremskurve
+ *  - Rangiergeschwindigkeit
+ *  - nicht belegt
+ *  - nicht belegt
+ *  - Störungen und Häufigkeit
+ *  - leer
  */
 
 unsigned long previousBlinkMillisFrei = millis();
@@ -264,67 +283,7 @@ void setCurrentSpeedLimit(int kmh) {
 // #endregion
 
 
-void drawStateOnSerial()
-{
-  if ((millis() - lastDrawOfConsole) >= CONSOLE_DRAW_INTERVAL)
-  {
-    lastDrawOfConsole = millis();
-    // Clear screen
-    Serial.print("\033[2J");
-    // Draw border
-    
-    // print display
 
-    // assume 80 columns, 25 rows
-    for (int y = 0; y < 6; y++)
-    {
-      Serial.print("\n");
-    }
-    Serial.print(lcdState[2]);
-    Serial.print(lcdState[3]);
-    Serial.print("\n");
-
-    for (int i = 0; i < TERM_COLUMNS; i++)
-    {
-      // If we are in a display subroutine
-      if (i == 38)
-      {
-        Serial.print(lcdState[0]);
-      }
-      else if (i == 39)
-      {
-        Serial.print(lcdState[1]);
-      }
-      else if (i == 40)
-      {
-        Serial.print(lcdState[2]);
-      }
-      else if (i == 41)
-      {
-        Serial.print(lcdState[3]);
-      }
-      else
-      {
-        Serial.print(" ");
-      }
-    }
-    Serial.print("\n");
-    // print light status
-    Serial.print(" Frei: ");
-    Serial.print(lightFreiOn);
-    Serial.print(" Pruef: ");
-    Serial.print(lightPruefOn);
-    Serial.print(" Betr: ");
-    Serial.print(lightBetrOn);
-    Serial.print(" Rueck: ");
-    Serial.print(lightRueckOn);
-
-    // print if pressed
-    Serial.print("\n");
-    Serial.print("Current test mode: ");
-    Serial.println(currentTestDisplay);
-  }
-}
 
 //#region LCD drawing
 
@@ -452,37 +411,79 @@ void displayNumber(int number)
 
 // #pragma region Test functions
 
-void displayH0()
+void displayZwangsbremsungen()
 {
   turnOffBuzzer();
   setCurrentSpeed(0);
   setCurrentSpeedLimit(25);
   char h0CountString[5];
-  sprintf(h0CountString, "H%3d", H0count);
+  sprintf(h0CountString, "H%3d", anzahlZwangsbremsungen);
   displayString(h0CountString);
 }
 
-void displayLength()
+void displayFreigaben()
 {
-  char trainLengthString[5];
-  sprintf(trainLengthString, "%3dH", TRAIN_LENGTH);
-  displayString(trainLengthString);
-}
-void displayFunc7()
-{
-  displayString("2221");
-}
-void displayResetCount()
-{
-   char resetCountString[5];
-  sprintf(resetCountString, "E%3d", resetCount);
-  displayString(resetCountString);
+  char anzahlFreigabenString[5];
+  sprintf(anzahlFreigabenString, "E%3d", anzahlFreigaben);
+  displayString(anzahlFreigabenString);
 }
 
-void displayL000()
-{
-  displayString("L000");
+void displayStoerschalterbedienungen() {
+   char anzahlStoerschalterString[5];
+  sprintf(anzahlStoerschalterString, "L%3d", anzahlStoerschalterbedienungen);
+  displayString(anzahlStoerschalterString);
 }
+
+void displayRaddurchmesser() {
+   char raddurchmesserString[5];
+  sprintf(raddurchmesserString, "P%3d", raddurchmesser);
+  displayString(raddurchmesserString);
+}
+
+void displayZuglaenge() {
+   char zuglaengeString[5];
+  sprintf(zuglaengeString, "%3dH", zuglaenge);
+  displayString(zuglaengeString);
+}
+
+void displayZielnummer() {
+   char zielnummerString[5];
+  sprintf(zielnummerString, "%3dE", ziel);
+  displayString(zielnummerString);
+}
+
+void displayLiniennummer() {
+   char liniennummerString[5];
+  sprintf(liniennummerString, "%3dL", linie);
+  displayString(liniennummerString);
+}
+
+void displayKursnummer() {
+   char kursnummerString[5];
+  sprintf(kursnummerString, "%3dP", kurs);
+  displayString(kursnummerString);
+}
+
+void displayKilometerstand() {
+   char kilometerstandString[5];
+  sprintf(kilometerstandString, "%3dL", kilometerstandIn10er);
+  displayString(kilometerstandString);
+}
+
+void displayBremskurve() {
+   char bremskurveString[5];
+  sprintf(bremskurveString, "HH%2d", bremskurve);
+  displayString(bremskurveString);
+}
+void displayRangiergeschwindigkeit() {
+   char rangiergeschwindigkeitString[5];
+   sprintf(rangiergeschwindigkeitString, "HE%2d", rangiergeschwindigkeit);
+   displayString(rangiergeschwindigkeitString);
+}
+
+
+
+
 
 void testFunction()
 {
@@ -611,29 +612,7 @@ void setupPins() {
   pinMode(PIN_TACHO_SOLL, OUTPUT);
 }
 
-void bootSequence() {
-  displayString("8007");
-  setCurrentSpeed(70);
-  setCurrentSpeedLimit(70);
-  turnOnBuzzer();
-  turnOnFrei();
-  delay(100);
-  turnOffBuzzer();
-  delay(300);
-  turnOffFrei();
-  turnOnPruef();
-  delay(500);
-  turnOffPruef();
-  turnOnBetr();
-  delay(500);
-  turnOffBetr();
-  turnOnRueck();
-  delay(500);
-  turnOffRueck();
-  setCurrentSpeed(0);
-  setCurrentSpeedLimit(25);
-  delay(2000);
-}
+
 
 void setup()
 {
@@ -644,10 +623,13 @@ void setup()
   turnOffFrei();
   turnOffRueck();
   turnOffBetr();
-  bootSequence();
   // Betr light on in normal mode
   turnOnBetr();
-  Serial.begin(9600);
+  // IBIS nach VDV 300
+  Serial.begin(1200, SERIAL_7E2);
+
+
+  
   freiButton.registerCallbacks(freiButton_pressedCallback, freiButton_releasedCallback);
   pruefButton.registerCallbacks(pruefButton_pressedCallback, pruefButton_releasedCallback);
   rueckButton.registerCallbacks(rueckButton_pressedCallback,rueckButton_releasedCallback);
@@ -667,15 +649,9 @@ void normalMode() {
     turnOffFrei();
     turnOffRueck();
     turnOnBetr();
-    displayVmax();
 }
 
-void displayVmax()
-{
-  char vmaxString[5];
-  sprintf(vmaxString,"%4d",currentSpeedLimit);
-  displayString(vmaxString);
-}
+
 
 // Main loop
 
@@ -696,35 +672,54 @@ void loop()
     turnOnRueck();
     blinkFrei();
     blinkBetr();
-    Serial.print("Prueffunktion ");
-    Serial.println(currentTestDisplay);
     
     // Switch between display modes
 
     switch (currentTestDisplay)
     {
     case 1:
-      displayVmax();
-      break;
-    case 2:
       testFunction();
       break;
+    case 2:
+      displayZwangsbremsungen();
+      break;
     case 3:
-      displayH0();
+      displayFreigaben();
       break;
     case 4:
-      displayResetCount();
+      displayStoerschalterbedienungen();
       break;
     case 5:
-      displayL000();
+      displayRaddurchmesser();
       break;
     case 6:
-      displayLength();
+      displayZuglaenge();
       break;
     case 7:
-      displayFunc7();
+      displayZielnummer();
       break;
     case 8:
+      displayLiniennummer();
+      break;
+    case 9:
+      displayKursnummer();
+      break;
+    case 10:
+      displayKilometerstand();
+      break;
+    case 11:
+      displayBremskurve();
+      break;
+    case 12:
+      displayRangiergeschwindigkeit();
+      break;
+    case 13:
+      displayString("HL  ");
+      break;
+    case 14:
+      displayString("HP  ");
+      break;
+    case 15:
       blankDisplay();
       break;
     }
@@ -733,32 +728,12 @@ void loop()
   {
       normalMode();
   }
+  
   if (Serial.available() > 0) {
     String input = Serial.readString();
     input.trim();
-    if (input[0] == 'I') {
-      String stringValue = input.substring(1);
-      int intValue = stringValue.toInt();
-      analogWrite(PIN_TACHO_IST, intValue);
-    }
-    if (input[0] == 'S') {
-      String stringValue = input.substring(1);
-      int intValue = stringValue.toInt();
-      analogWrite(PIN_TACHO_SOLL, intValue);
-    }
-   
+    // Ankommendes IBIS-Telegramm auf WBSD
     
   }
-   Serial.print("Outputting PWM for TACHO SOLL at");
-    Serial.print(PIN_TACHO_SOLL);
-    Serial.print(" with value: ");
-    Serial.println(convertToPWM(currentSpeedLimit));
-    Serial.print("Outputting PWM for TACHO IST at ");
-    Serial.print(PIN_TACHO_IST);
-    Serial.print(" with value: ");
-    Serial.println(convertToPWM(currentSpeed));
-    Serial.print("currentSpeed is");
-    Serial.println(currentSpeed);
-    delay(5000);
-  
+
 }
