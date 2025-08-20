@@ -3,46 +3,52 @@
 #define BUTTON_DEBOUNCE_DELAY 20    // [ms]
 
 #define PRUEF_BUTTON_HOLD_TIME 5000 // [ms]
-#define BLINK_INTERVAL 500          // [ms]
+#define BLINK_INTERVAL 1000          // [ms]
 #define TRAIN_LENGTH 26
 
-#define CONSOLE_DRAW_INTERVAL 5000
 
-// DISPLAY PINS
-#define PIN_B0 2
-#define PIN_B1 3
-#define PIN_B2 4
-#define PIN_B3 5
+// DISPLAY PINS, unbestätigt 28.05.2025
+#define PIN_B0 4 
+#define PIN_B1 6 
+#define PIN_B2 7
+#define PIN_B3 8
 
-#define PIN_CS1 7
-#define PIN_CS2 6
+#define PIN_CS1 9
+#define PIN_CS2 10
 
-#define PIN_DS1 8
-#define PIN_DS2 11 // vorher 9, eventuell wird Timer 0 schon verwendet
+#define PIN_DS1 11
+#define PIN_DS2 12
 
 // BUTTON PINS
 
-#define PIN_T_FREI A4  // vorher 10
-#define PIN_T_RUECK A5 // vorher 11
-#define PIN_T_PRUEF 12
+#define PIN_T_FREI A0
+#define PIN_T_RUECK 13
+#define PIN_T_PRUEF 2
 
 // LAMP PINS
 
-#define PIN_L_BETR 13
-#define PIN_L_FREI A0
-#define PIN_L_RUECK A1
-#define PIN_L_PRUEF A2
+#define PIN_L_BETR A3
 
-#define PIN_BUZZER A3
+
+
+#define PIN_L_FREI A5
+#define PIN_L_RUECK A2
+#define PIN_L_PRUEF A4
+
+#define PIN_BUZZER A1
 
 // Tachometer PINS
-#define PIN_TACHO_IST 9
-#define PIN_TACHO_SOLL 10
+#define PIN_TACHO_IST 5
+#define PIN_TACHO_SOLL 3
 
 // TODO: Rückfallebene, RFE-Schalter etc.
 
 bool on = 1;
 bool off = 0;
+
+
+String telegramBuffer = "";
+bool carriageReturnReceived = false;
 
 int currentSpeedLimit = 25;
 int currentSpeed = 0;
@@ -59,6 +65,10 @@ int kurs = 0;
 int kilometerstandIn10er = 0;
 int bremskurve = 1;
 int rangiergeschwindigkeit = 25;
+
+bool isBlinkingDisplay = false;
+
+char* displayBuffer = "    ";
 // TODO: Störungen X mal aufgetreten
 
 /* Testfunktionen ZUB 100:
@@ -144,6 +154,7 @@ int getIndexOfChar(char c) {
 
 void displayString(char* str) {
   if (strlen(str) == 4) {
+     displayBuffer = str;
      int charIndex1 = getIndexOfChar(str[0]);
      int charIndex2 = getIndexOfChar(str[1]);
      int charIndex3 = getIndexOfChar(str[2]);
@@ -202,7 +213,7 @@ void turnOffRueck()
   lightRueckOn = false;
 }
 void turnOnBuzzer() {
-  Serial.println("Turning on buzzer");
+  // Serial.println("Turning on buzzer");
   digitalWrite(PIN_BUZZER, HIGH);
   buzzerOn = true;
 }
@@ -210,13 +221,14 @@ void turnOffBuzzer() {
   digitalWrite(PIN_BUZZER, LOW);
   buzzerOn = false;
 }
+
+
 // #endregion
 
 // #region Tacho
 
-/* Mapping Speed to PWM */
-// at 390 ohm
-/* 12 = 5 km /h
+/* Mapping Speed to PWM at 390 ohm 
+ *  5 km /h
  * 25 = 10km/h
  * 39 = 15km/h
  * 51 = 20 kh/h
@@ -237,9 +249,6 @@ void turnOffBuzzer() {
  */
 
 int convertToPWM(int desiredSpeed) {
-    if (desiredSpeed == 0) {
-      return 0;
-    }
     int speeds[] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90};
     int pwms[] = {0, 12, 25, 39, 51, 64, 77, 90, 103, 117, 130, 143, 156, 168, 180, 194, 207, 218, 231};
 
@@ -264,6 +273,7 @@ int convertToPWM(int desiredSpeed) {
 
     return estimatedPWM;
 }
+
 
 
 void setCurrentSpeed(int kmh) {
@@ -466,7 +476,7 @@ void displayKursnummer() {
 
 void displayKilometerstand() {
    char kilometerstandString[5];
-  sprintf(kilometerstandString, "%3dL", kilometerstandIn10er);
+  sprintf(kilometerstandString, "%4d", kilometerstandIn10er);
   displayString(kilometerstandString);
 }
 
@@ -488,9 +498,13 @@ void displayRangiergeschwindigkeit() {
 void testFunction()
 {
   turnOnBuzzer();
+  turnOnFrei();
+  turnOnRueck();
+  turnOnPruef();
   displayString("8888");
   setCurrentSpeed(80);
   setCurrentSpeedLimit(80);
+  
 }
 
 
@@ -535,40 +549,59 @@ void blinkFrei()
 //#region Button callbacks
 void pruefButton_pressedCallback()
 {
+    Serial.write("fCZUB PRUEF\r");
 
-    Serial.println("Pruef pressed");
+    
     // Pruef pressed
     if (currentTestDisplay == 0)
     {
-      currentTestDisplay = 1;
+      setTestMode(1);
     }
     else
     {
-      
-      currentTestDisplay = 0;
-      setCurrentSpeed(0);
-      setCurrentSpeedLimit(25);
+      setTestMode(0);
+      normalMode();
     }
+  
+    
 
 }
 void freiButton_pressedCallback()
 {
+  Serial.write("fCZUB FREI\r");
 
+    if (currentTestDisplay != 0) {
+     Serial.write("fCZUB PRUEF MODE ");
+  Serial.write(currentTestDisplay);
+  Serial.write("\r");
+    if (currentTestDisplay == 1)
+    {
+      setTestMode(15);
+    }
+  else
+    {
+      setTestMode(currentTestDisplay - 1);
+    }
+  }
 }
 
 void rueckButton_pressedCallback()
 {
-  Serial.println("Rueck pressed");
+  Serial.write("fCZUB RUECK\r");
   if (currentTestDisplay != 0) {
-    if (currentTestDisplay < 8)
+     Serial.write("fCZUB PRUEF MODE ");
+  Serial.write(currentTestDisplay);
+  Serial.write("\r");
+    if (currentTestDisplay < 15)
     {
-      currentTestDisplay++;
+      setTestMode(currentTestDisplay + 1);
     }
   else
     {
-      currentTestDisplay = 1;
+      setTestMode(1);
     }
   }
+  
 }
 
 void rueckButton_releasedCallback() {
@@ -610,12 +643,18 @@ void setupPins() {
   // Tacho
   pinMode(PIN_TACHO_IST, OUTPUT);
   pinMode(PIN_TACHO_SOLL, OUTPUT);
+
+  pinMode(PIN_T_RUECK, INPUT_PULLUP);
+  pinMode(PIN_T_FREI, INPUT_PULLUP);
+  pinMode(PIN_T_PRUEF, INPUT_PULLUP);
 }
 
 
 
 void setup()
 {
+  TCCR2B = (TCCR2B & 0b11111000) | 0x01;
+  
   setupPins();
   initDisplay();
   turnOffBuzzer();
@@ -623,59 +662,84 @@ void setup()
   turnOffFrei();
   turnOffRueck();
   turnOffBetr();
+  displayString("    ");
   // Betr light on in normal mode
-  turnOnBetr();
+  // turnOnBetr();
   // IBIS nach VDV 300
-  Serial.begin(1200, SERIAL_7E2);
+  Serial.begin(9600);
+ 
 
+
+  Serial.println("fCZUB INIT");
 
   
   freiButton.registerCallbacks(freiButton_pressedCallback, freiButton_releasedCallback);
   pruefButton.registerCallbacks(pruefButton_pressedCallback, pruefButton_releasedCallback);
   rueckButton.registerCallbacks(rueckButton_pressedCallback,rueckButton_releasedCallback);
 
-  // setup input buttons (debounced)
-  freiButton.setup(PIN_T_FREI, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
+  // setup input buttons (debounced)                                                                                                                                                                                                                                                                                                                                                                                                  
+  freiButton.setup(PIN_T_FREI, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300);
   pruefButton.setup(PIN_T_PRUEF, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300); // single-shot pressed-on time duration callback
   rueckButton.setup(PIN_T_RUECK, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES, 300); // single-shot pressed-on time duration callback
 
-  
+  normalMode();
 }
 
 
 void normalMode() {
-    turnOffBuzzer();
-    turnOffPruef();
-    turnOffFrei();
-    turnOffRueck();
-    turnOnBetr();
+  turnOffBuzzer();
+  turnOnBetr();
+  turnOffPruef();
+  turnOffRueck();
+  turnOffFrei();
+  setCurrentSpeedLimit(15);
+  setCurrentSpeed(25);
+  char speedLimitString[5];
+  sprintf(speedLimitString, "  %2d", currentSpeedLimit);
+  displayString(speedLimitString);
+}
+
+
+void processTelegram(String input, byte checkByte) {
+  input.trim();
+  Serial.print("fCZUB Laenge Input: ");
+  Serial.print(input.length());
+  Serial.print("\r");
+
+  // Hier könntest du das Check-Byte verifizieren, wenn nötig
+
+  if (input.startsWith("l") && input.length() == 4) {
+    linie = input.substring(1, 4).toInt();
+    Serial.write("fCZUB Linie gesetzt: ");
+    Serial.write(linie);
+    Serial.write("\r");
+
+  } else if (input.startsWith("k") && input.length() == 3) {
+    kurs = input.substring(1, 3).toInt();
+    Serial.write("fCZUB Kurs gesetzt: ");
+    Serial.write(kurs);
+    Serial.write("\r");
+
+  } else if (input.startsWith("z") && input.length() == 5) {
+    ziel = input.substring(1, 4).toInt();
+    Serial.write("fCZUB Ziel gesetzt: ");
+    Serial.write(ziel);
+    Serial.write("\r");
+
+  } else {
+    Serial.write("fCUnbekanntes Telegramm\r");
+  }
 }
 
 
 
-// Main loop
+void setTestMode(int mode) {
+  currentTestDisplay = mode;
 
-void loop()
-{
-
-  unsigned long now = millis();
-  freiButton.process(now);
-  pruefButton.process(now);
-  rueckButton.process(now);
-
-  // Check if we need to enter or exit test mode
- 
-  if (currentTestDisplay > 0)
-  {
-    // constant pruef,rueck, blink frei, betr
-    turnOnPruef();
-    turnOnRueck();
-    blinkFrei();
-    blinkBetr();
-    
-    // Switch between display modes
-
-    switch (currentTestDisplay)
+  Serial.print("fC ZUB Test: ");
+  Serial.print(mode);
+  Serial.print("\r");
+  switch (mode)
     {
     case 1:
       testFunction();
@@ -723,17 +787,40 @@ void loop()
       blankDisplay();
       break;
     }
+}
+
+void loop()
+{
+
+  unsigned long now = millis();
+  freiButton.process(now);
+  pruefButton.process(now);
+  rueckButton.process(now);
+
+  if (isBlinkingDisplay) {
+    displayString(displayBuffer);
+    delay(1000);
+    blankDisplay();
+    delay(1000); 
   }
-  else
-  {
-      normalMode();
-  }
+
   
-  if (Serial.available() > 0) {
-    String input = Serial.readString();
-    input.trim();
-    // Ankommendes IBIS-Telegramm auf WBSD
-    
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (c == '\r') {
+      carriageReturnReceived = true;
+    } else if (carriageReturnReceived) {
+      // Letztes Zeichen nach \r = Check-Byte → Jetzt Telegramm komplett
+      byte checkByte = c;
+      processTelegram(telegramBuffer, checkByte);
+      telegramBuffer = "";
+      carriageReturnReceived = false;
+    } else {
+      telegramBuffer += c;
+    }
   }
+ 
+ 
 
 }
